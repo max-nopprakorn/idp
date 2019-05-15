@@ -1,0 +1,64 @@
+#CONFIGMAP
+#---
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  labels:
+#    app: keycloak-cache-server
+#  name: keycloak-cache-server
+#  namespace: ${ENV}
+#data:
+#  spring-config-server-url: http://config-server-svc.tools.svc.cluster.local:8080
+
+#SERVICE
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: keycloak-cache-server
+  name: keycloak-cache-server
+  namespace: ${ENV}
+spec:
+  ports:
+    - name: tcp-11222
+      port: 11222
+      protocol: TCP
+      targetPort: 11222
+  selector:
+    app: keycloak-cache-server
+  sessionAffinity: None
+  type: ClusterIP
+
+#DEPLOYMENT
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: keycloak-cache-server
+  name: keycloak-cache-server
+  namespace: ${ENV}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  template:
+    metadata:
+      labels:
+        app: keycloak-cache-server
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: worker
+      containers:
+        - image: ??
+          imagePullPolicy: Always
+          name: keycloak-cache-server
+          ports:
+            - containerPort: 11222
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "0.5"
+              memory: "1024Mi"
+      imagePullSecrets:
+      - name: ??

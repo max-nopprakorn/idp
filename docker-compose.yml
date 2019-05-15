@@ -1,0 +1,48 @@
+version: '3'
+
+volumes:
+  postgres_data:
+      driver: local
+
+services:
+  keycloak-webapp:
+      build: ./sample/webapp
+      environment:
+        PORT: 8081
+      ports:
+        - 8081:8081
+
+  keycloak-database:
+      image: postgres
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: keycloak
+        POSTGRES_USER: keycloak
+        POSTGRES_PASSWORD: keycloak
+
+  keycloak-ispn:
+      build: ./keycloak-cache-server
+      ports:
+        - 11222:11222
+
+  keycloak:
+      build: ./keycloak
+      environment:
+        DB_VENDOR: POSTGRES
+        DB_ADDR: keycloak-database
+        DB_DATABASE: keycloak
+        DB_USER: keycloak
+        DB_PASSWORD: keycloak
+        DB_PORT: 5432
+        ISPN_HOST: keycloak-ispn
+        KEYCLOAK_USER: admin
+        KEYCLOAK_PASSWORD: admin
+        PROVIDER_LOGLEVEL: DEBUG
+        KEYCLOAK_IMPORT: /tmp/realm.json
+        KEYCLOAK_ENV: developement
+      ports:
+        - 8080:8080
+      depends_on:
+        - keycloak-database
+        - keycloak-ispn

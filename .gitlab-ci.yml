@@ -1,0 +1,47 @@
+variables:
+  PROJECT_NAME: $CI_PROJECT_NAME
+  CACHE_SERVER: "cache-server"
+
+before_script:
+ - docker --version
+
+stages:
+  - build
+  - tag
+
+build_snapshot:
+   stage: build
+   image: docker:latest
+   script:
+     - echo "Start to build and tag docker image."
+     - docker build -t $PROJECT_NAME-$CACHE_SERVER:$CI_COMMIT_SHA ./keycloak-cache-server #building the keycloak cache server
+     - docker build -t $PROJECT_NAME:$CI_COMMIT_SHA ./keycloak #Building keycloak
+
+
+image_tag:
+   stage: tag
+   image: docker:latest
+   services:
+    - name: docker:dind
+      command: [ "--insecure-registry=$DOCKER_PRIVATE_REGISTRY" ]
+   before_script:
+    - docker login -u $DOCKER_PRIVATE_USER -p $DOCKER_PRIVATE_PASSWORD $DOCKER_PRIVATE_REGISTRY
+   after_script:
+    - docker rm -v $(docker ps -aq -f status=exited)
+    - docker logout $DOCKER_PRIVATE_REGISTRY
+   variables:
+     TAG_NO: $CI_COMMIT_TAG
+     DOCKER_HUB: $DOCKER_PRIVATE_REGISTRY
+   script:
+     - echo "Start to Create Docker image release version."
+     - docker tag $PROJECT_NAME-$CACHE_SERVER:$CI_COMMIT_SHA $DOCKER_HUB/$PROJECT_NAME-cache-server:$TAG_NO
+     - docker tag $PROJECT_NAME:$CI_COMMIT_SHA $DOCKER_HUB/$PROJECT_NAME:$TAG_NO
+     - echo "push docker to docker registry"
+     - docker push $DOCKER_HUB/$PROJECT_NAME-$CACHE_SERVER:$TAG_NO
+     - docker push $DOCKER_HUB/$PROJECT_NAME:$TAG_NO
+     - echo "Search Docker image by reponame"
+     - docker images | grep $PROJECT_NAME
+     - echo "Delete Docker image in local by tag"
+     - echo "Completed to Create and Push Docker image to Docker Hub."
+   only:
+     - tags

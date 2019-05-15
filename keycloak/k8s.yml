@@ -1,0 +1,191 @@
+## kubetpl:syntax:$
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Real-IP $$remote_addr";
+      more_set_headers "X-Forwarded-Port $$server_port";
+      more_set_headers "X-Forwarded-For $$remote_addr";
+      more_set_headers "X-Forwarded-Proto $$scheme";
+  name: keycloak
+  namespace: ${ENV}
+spec:
+  rules:
+  - host: ??
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: keycloak
+          servicePort: 8080
+      - path: /auth
+        backend:
+          serviceName: keycloak
+          servicePort: 8080
+  tls:
+  - hosts:
+    - ??
+status:
+  loadBalancer:
+    ingress:
+    - {}
+
+#CONFIGMAP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: keycloak
+  name: keycloak
+  namespace: ${ENV}
+data:
+  db.POSTGRESQL_SSL_VERIFY: "false"
+  db.POSTGRESQL_ADDR: "??"
+  db.POSTGRESQL_DATABASE: "??"
+  db.POSTGRESQL_USER: "??"
+  db.POSTGRESQL_PASSWORD: "??"
+  db.POSTGRESQL_PORT: "??"
+  cache.SERVER_ADDRESS: "N/A"
+  keycloak.USER: "keycloak_admin"
+  keycloak.PASSWORD: "admin"
+
+#SERVICE
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: keycloak
+  name: keycloak
+  namespace: ${ENV}
+spec:
+  ports:
+    - name: tcp-8080
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: tcp-8443
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
+    - name: tcp-443
+      port: 443
+      protocol: TCP
+      targetPort: 443
+  selector:
+    app: keycloak
+  sessionAffinity: None
+  type: ClusterIP
+
+#DEPLOYMENT
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: keycloak
+  name: keycloak
+  namespace: ${ENV}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: worker
+      containers:
+        - env:
+            - name: PROVIDER_LOGLEVEL
+              value: DEBUG
+            - name: OPERATING_MODE
+              value: clustered
+            - name: KEYCLOAK_LOGLEVEL
+              value: DEBUG
+            - name: PROXY_ADDRESS_FORWARDING
+              value: "true"
+            - name: DB_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  key: db.POSTGRESQL_ADDR
+                  name: keycloak
+            - name: DB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  key: db.POSTGRESQL_DATABASE
+                  name: keycloak
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  key: db.POSTGRESQL_USER
+                  name: keycloak
+            - name: DB_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: db.POSTGRESQL_PASSWORD
+                  name: keycloak
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: db.POSTGRESQL_PORT
+                  name: keycloak
+            - name: KEYCLOAK_USER
+              valueFrom:
+                configMapKeyRef:
+                  key: keycloak.USER
+                  name: keycloak
+            - name: KEYCLOAK_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: keycloak.PASSWORD
+                  name: keycloak
+            - name: ISPN_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: cache.SERVER_ADDRESS
+                  name: keycloak
+          image: ??
+          imagePullPolicy: Always
+          name: keycloak
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 2
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 2
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+            - containerPort: 8443
+              protocol: TCP
+            - containerPort: 443
+              protocol: TCP
+          resources:
+              requests:
+                cpu: "1000m"
+                memory: "1024Mi"
+              limits:
+                cpu: "1500m"
+                memory: "1536Mi"
+      imagePullSecrets:
+      - name: ??
